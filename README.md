@@ -1,24 +1,16 @@
-# Aftercredits ✳
+# Aftercredits
 
-**Something worth your evening.** A film-club discovery site for movies, series and animation, built with vanilla HTML, CSS and JavaScript, a Cloudflare Worker, and D1.
+A film discovery site for movies, series and animation. Built with HTML, CSS and JavaScript, a Cloudflare Worker and D1.
 
-[Open the live site](https://aftercredits-film-club.raees-atelier-concept.workers.dev) · [Project brief](docs/PROJECT-BRIEF.md)
+[Open the site](https://aftercredits-film-club.raees-atelier-concept.workers.dev)
 
-Instead of asking visitors to choose from another endless grid, **Mood Arc** asks where they are starting, where they want a story to take them, and how much time they have. Three recommendations explain their fit. When the time allows, a double bill pairs two complete films within the same budget.
+Mood Arc starts with your mood, where you want a story to take you, and how much time you have. It returns up to three recommendations with reasons for each choice. When two complete films fit the evening, it also suggests a double bill.
 
-## Try the experience
+The catalogue contains 33 titles. Search by title or creator, combine filters, compare up to three picks, and keep a watchlist. Watched history and personal ratings influence later recommendations. Light and dark themes are available throughout.
 
-1. Open **Mood Arc**, choose “A little drained → Somewhere else” and two hours.
-2. Change to “Restless” to see the ranking respond to your starting energy.
-3. Choose a whole evening for a two-film programme. Save both to the watchlist.
-4. Mark a title watched and give it a personal rating. It leaves future recommendations; highly rated genres gently influence subsequent picks.
-5. Compare three titles, try combined discovery filters, and switch between light and dark themes.
+## Local development
 
-The programme contains 33 sourced titles. Streaming and trailer links are clearly labelled external searches, rather than claims of live availability. Personal collections are anonymous and specific to the browser that created them.
-
-## Run locally
-
-Requires Node.js 22 or later and npm. No metadata API key or Cloudflare sign-in is needed for local development.
+Requires Node.js 22 or later and npm. Local development does not need a metadata API key or Cloudflare login.
 
 ```sh
 npm ci
@@ -27,50 +19,74 @@ npm run db:seed
 npm run dev
 ```
 
-Open `http://127.0.0.1:8790`.
+Open `http://127.0.0.1:8790`. The catalogue seed uses upserts so existing title references are preserved.
+
+## Tests and builds
+
+Keep the development server running for the API tests:
 
 ```sh
-npm test          # API integration tests require the local server above
-npm run build    # Minified client assets and bundled Worker in dist/
+npm test
+npm run format:check
+npm run build
 ```
 
-The browser has no framework or third-party runtime scripts. Wrangler, esbuild, Prettier, fonts and the accessibility audit engine are development dependencies.
+`npm run test:unit` runs the recommendation tests without a server. API tests cover filtering, visitor isolation, persistence, concurrent updates, export and deletion.
 
-## What is implemented
+For browser checks, run `npm run qa:prepare`, then open `/__qa/index.html` for layout and accessibility checks or `/__qa/state.html` for interaction regressions. Audit files are excluded from production. Existing browser coverage is Chromium; Safari, Firefox and real-device checks remain outstanding.
 
-- Combined title/director, format, genre, release period, language, duration and intensity filters; five sort orders.
-- Movie and series detail pages with spoiler-free premises, editorial notes, source attribution and regional streaming searches.
-- Mood Arc ranking, explanations, two-film programmes and unseen surprise picks.
-- Watchlist, watched history, editable personal ratings, reversible exclusions, three-title comparison and collection export/deletion.
-- Light/dark themes, keyboard-operable native dialogs, visible focus, reduced-motion support, local WebP posters and self-hosted fonts.
-- Server-side filtering and persistence, opaque HTTP-only cookies, prepared database statements, input limits, origin checks, per-session write limits and optimistic concurrency checks.
-
-## Structure
+## Code layout
 
 | Path | Purpose |
 | --- | --- |
-| `public/` | Browser application, CSS, fonts and artwork |
-| `server/index.js` | HTTP API, session ownership, persistence and asset serving |
-| `server/recommend.js` | Pure ranking and double-bill logic |
-| `data/` | Sourced catalogue and idempotent database seed |
+| `public/app.js` | Routes, filters, themes, dialogs and collection controls |
+| `public/style.css` | Responsive layouts, typography and theme colours |
+| `server/index.js` | API routes, catalogue queries, sessions and persistence |
+| `server/recommend.js` | Recommendation scoring and double-bill selection |
+| `data/` | Catalogue snapshot and database seed |
 | `migrations/` | D1 schema |
-| `tests/` | Ranking constraints and HTTP integration tests |
-| `public/__qa/` | Development-only responsive/accessibility audit; excluded from deployment |
-| `docs/` | Product brief, architecture, attribution and validation |
+| `tests/` | Recommendation and API tests |
+| `scripts/catalogue.py` | Optional metadata import utility |
 
-## Deploy your own copy
+## How Mood Arc works
 
-The production configuration targets the portfolio deployment. To publish a separate copy, create your own D1 database, change the Worker name and database binding in `wrangler.production.jsonc`, then run:
+The server first removes watched and hidden titles, then enforces the requested runtime and format. Eligible titles receive these scores:
+
+| Factor | Points |
+| --- | ---: |
+| Requested destination mood | 100 |
+| Starting-energy fit | 20 |
+| Genre of a watched title rated at least 4 out of 5 | 8 |
+| Already on the watchlist | 3 |
+
+Exact destination matches are returned when available. Otherwise, the results are labelled as alternatives. Ties are sorted by title. Double bills contain two distinct, complete films that match the destination and fit the combined time budget. Series durations refer to one typical episode.
+
+The ranking uses editorial tags and explicit rules. It does not use machine learning or aggregate audience ratings.
+
+## Saved collections
+
+D1 holds the catalogue, anonymous sessions and collection entries. Each entry has one status: saved, watched or hidden, with an optional personal rating. Marking a title watched removes it from the watchlist and future recommendations.
+
+A random HTTP-only cookie identifies the browser for 90 days; the database stores its hash. Writes use prepared SQL, input limits, origin checks and revision numbers. A stale update returns a conflict and refreshes the browser's state. Personal responses are not cached.
+
+Export downloads the current collection as JSON. Delete removes the session and its entries. There are no accounts or cross-device recovery; clearing the cookie loses access to that collection. Expired sessions are cleaned up in batches when new sessions are created.
+
+## Deploy
+
+For a separate deployment, change the Worker name in `wrangler.production.jsonc`, create a D1 database and put its ID in the `DB` binding:
 
 ```sh
 npx wrangler login
 npx wrangler d1 create your-database-name
-# Paste the returned database ID into your production configuration.
 npx wrangler d1 migrations apply DB --remote --config wrangler.production.jsonc
 npx wrangler d1 execute DB --remote --config wrangler.production.jsonc --file data/catalogue.sql
 npm run deploy
 ```
 
-This architecture fits Cloudflare's Workers and D1 free tiers for a small review site. Account-wide usage limits still apply: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/). No subscription changes are required by the application.
+The build bundles the Worker and minifies browser assets into `dist/`. GitHub stores the source; deployment is performed with Wrangler.
 
-Read the [architecture](docs/ARCHITECTURE.md), [validation record](docs/VALIDATION.md), [project brief](docs/PROJECT-BRIEF.md) and [source/asset notes](docs/SOURCES.md). Third-party artwork and metadata have their own terms; they are not relicensed by this repository.
+## Catalogue sources
+
+Metadata is a reviewed snapshot from Wikipedia and TVmaze, checked on 16 September 2026. Ordinary browsing does not call either provider. Mood tags and short recommendations are editorial interpretations.
+
+Streaming and trailer links open external searches. They do not establish current regional availability, and the site does not stream video. See [CREDITS.md](CREDITS.md) for metadata attribution, artwork sources and font licences.
