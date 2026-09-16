@@ -2820,6 +2820,21 @@ dialog > p {
     font-size: 8px;
   }
 }
+@media (max-width: 600px) {
+  .card-meta,
+  .recommendation .card-meta {
+    font-size: 10px;
+  }
+  .card-meta > span {
+    min-width: 0;
+  }
+  .section-heading {
+    flex-wrap: wrap;
+  }
+  .section-heading .text-link {
+    font-size: 11px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,

@@ -55,7 +55,9 @@ export function recommend(titles, entries, input) {
               ? "Room to sit with the story."
               : "A good fit for an open-minded evening."
         : arc.from === "restless"
-          ? "A quieter detour than your starting mood, with the destination you chose."
+          ? exact
+            ? "A quieter detour than your starting mood, with the destination you chose."
+            : "A quieter alternative that fits your time, outside your chosen mood destination."
           : "This choice asks for a little more attention.";
       return {
         ...t,

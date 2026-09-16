@@ -307,8 +307,11 @@ async function loadExplore() {
     $("#catalogue-results").setAttribute("aria-busy", "false");
     bindImages();
   } catch {
+    if (id !== requestId || location.pathname !== "/explore") return;
     $("#catalogue-results")?.replaceChildren();
     if ($("#catalogue-results")) {
+      $("#results-count").textContent =
+        "The programme is unavailable right now";
       $("#catalogue-results").setAttribute("aria-busy", "false");
       $("#catalogue-results").innerHTML = empty(
         "AN INTERMISSION.",
@@ -497,6 +500,14 @@ async function mutate(id, status, rating = 0) {
   } finally {
     busy = false;
     shell();
+    if (location.pathname === "/mood-arc" && !arcResult) {
+      $("#arc-results").innerHTML = empty(
+        "YOUR COLLECTION CHANGED.",
+        "Find your arc again for fresh picks that reflect your latest choices.",
+        "Choose my next watch",
+        "/mood-arc",
+      );
+    }
     if (
       location.pathname.startsWith("/title/") ||
       location.pathname === "/collection"
@@ -599,6 +610,12 @@ document.addEventListener("click", async (e) => {
     $$('[data-action="compare"]').forEach((el) => {
       el.classList.toggle("active", compare.includes(el.dataset.id));
       el.setAttribute("aria-pressed", compare.includes(el.dataset.id));
+      if (el.classList.contains("text-link"))
+        el.innerHTML =
+          icon("compare") +
+          (compare.includes(el.dataset.id)
+            ? "On your shortlist"
+            : "Compare this");
     });
     toast(
       compare.includes(id)
@@ -646,15 +663,28 @@ document.addEventListener("click", async (e) => {
     busy = true;
     try {
       await api("reset", "POST", {});
-      session = await api("session", "POST", {});
+      session = { revision: 0, region: "ae", arc: {}, entries: [] };
+      online = false;
       arcResult = null;
       arc = { from: "drained", to: "transported", minutes: 120, kind: "any" };
       compare = [];
+      collectionTab = "saved";
       closeDialog();
-      render();
-      toast("Your collection and preferences have been deleted.");
+      await render();
+      try {
+        session = await api("session", "POST", {});
+        online = true;
+        await render();
+        toast("Your collection and preferences have been deleted.");
+      } catch {
+        toast(
+          "Your data was deleted. Reload to reconnect before saving new titles.",
+        );
+      }
     } catch (err) {
-      toast(errorText(err.message));
+      toast(
+        "We couldn’t confirm deletion. Reload to check your collection before trying again.",
+      );
     } finally {
       busy = false;
     }
@@ -752,7 +782,14 @@ document.addEventListener("change", async (e) => {
         $("#watch-provider").href =
           `https://www.justwatch.com/${value}/search?q=${encodeURIComponent(t.title)}`;
     } catch (err) {
-      e.target.value = session.region;
+      if (err.message === "conflict")
+        session = await api("state").catch(() => session);
+      const region = $("#region"),
+        current = title(location.pathname.slice(7));
+      if (region) region.value = session.region;
+      if (current && $("#watch-provider"))
+        $("#watch-provider").href =
+          `https://www.justwatch.com/${session.region}/search?q=${encodeURIComponent(current.title)}`;
       toast(errorText(err.message));
     }
   }

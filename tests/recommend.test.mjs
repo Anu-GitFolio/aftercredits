@@ -6,6 +6,26 @@ const titles = JSON.parse(
   await readFile(new URL("../data/catalogue.json", import.meta.url)),
 );
 const arc = { from: "drained", to: "transported", minutes: 120, kind: "any" };
+test("nearby detours do not claim to match the chosen destination", () => {
+  const r = recommend(titles, [], {
+    from: "restless",
+    to: "exhilarated",
+    minutes: 30,
+    kind: "animation",
+  });
+  assert.equal(r.exact, false);
+  assert.ok(r.results.length);
+  for (const t of r.results) {
+    assert.ok(
+      !t.reasons.some((reason) =>
+        reason.includes("with the destination you chose"),
+      ),
+    );
+    assert.ok(
+      t.reasons.some((reason) => reason.includes("outside your chosen mood")),
+    );
+  }
+});
 test("rejects unsupported moods, durations and formats", () => {
   for (const patch of [
     { from: "sad" },
