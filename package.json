@@ -1,0 +1,28 @@
+{
+  "name": "aftercredits",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1 --port 8790",
+    "build": "node scripts/build.mjs",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:seed": "wrangler d1 execute DB --local --file data/catalogue.sql",
+    "test": "node --test tests/*.test.mjs",
+    "deploy": "npm run build && wrangler deploy --config wrangler.production.jsonc",
+    "test:unit": "node --test tests/recommend.test.mjs",
+    "qa:prepare": "node scripts/prepare-qa.mjs",
+    "format:check": "prettier --check public/app.js public/style.css public/index.html server/*.js tests/*.mjs scripts/*.mjs"
+  },
+  "devDependencies": {
+    "@fontsource-variable/dm-sans": "^5.2.6",
+    "@fontsource/barlow-condensed": "^5.2.6",
+    "axe-core": "^4.10.3",
+    "esbuild": "^0.25.9",
+    "prettier": "^3.9.7",
+    "wrangler": "^4.132.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

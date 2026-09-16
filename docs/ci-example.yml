@@ -1,0 +1,32 @@
+name: Application checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run build
+      - name: Start local Worker and verify behaviour
+        run: |
+          npm run dev > /tmp/aftercredits-worker.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8790/api/catalogue > /dev/null; then break; fi
+            sleep 1
+          done
+          npm test
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/aftercredits-worker.log || true
